@@ -1,8 +1,12 @@
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 import requests, bitrix
 
 app = FastAPI()
+
+@app.get("/")
+async def rendirect_docs():
+    return RedirectResponse("/docs", status_code=301)
 
 @app.post("/lead-score")
 async def lead_score(id: str):
@@ -15,7 +19,6 @@ async def lead_score(id: str):
         raise HTTPException(status_code=500, detail=f"Erro de conexão ao Bitrix24: {err}")
     
     pontuacao = 0
-
     inicial = card.get('UF_CRM_1758287802')
     qualificacoes_realizadas = int(card.get('UF_CRM_1758291069013')) if card.get('UF_CRM_1758291069013') else 0
     
@@ -99,10 +102,12 @@ async def lead_score(id: str):
     
     if qualificacoes_realizadas < 1:
         del card['ID']
-        card['STAGE_ID'] = "C3:NEW"
-        card['CATEGORY_ID'] = "3"
-        card["UF_CRM_1758289316"] = pontuacao,
-        card["UF_CRM_1758289334"] = "Quente" if pontuacao > 4 else "Morno" if pontuacao > 2 else "Frio"
+        card.update({
+            'STAGE_ID': "C3:NEW",
+            'CATEGORY_ID': "3",
+            "UF_CRM_1758289316": pontuacao,
+            "UF_CRM_1758289334": "Quente" if pontuacao > 4 else "Morno" if pontuacao > 2 else "Frio"
+        }) 
         bitrix.deal_add(card)
 
     return JSONResponse(
